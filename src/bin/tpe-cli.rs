@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
 
-use toy_payments_engine::Transaction;
+use toy_payments_engine::{PaymentEngine, Transaction};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -14,6 +14,8 @@ fn main() -> Result<()> {
     let args = Args::parse();
     env_logger::init();
 
+    let mut engine = PaymentEngine::new();
+
     log::debug!("Reading transactions from {}", args.input.display());
 
     let mut reader = csv::ReaderBuilder::new()
@@ -22,8 +24,14 @@ fn main() -> Result<()> {
         .from_path(args.input)?;
     for result in reader.deserialize() {
         let transaction: Transaction = result?;
-        log::debug!("Transaction: {:?}", transaction);
+        if let Err(e) = engine.process_transaction(transaction) {
+            log::warn!("{}", e);
+            continue;
+        }
     }
+
+    let accounts = engine.serialize_accounts()?;
+    println!("{}", accounts);
 
     Ok(())
 }

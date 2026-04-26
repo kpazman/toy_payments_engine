@@ -19,6 +19,28 @@ impl Account {
             locked: false,
         }
     }
+
+    pub fn get_available(&self) -> f64 {
+        self.available
+    }
+
+    pub fn is_locked(&self) -> bool {
+        self.locked
+    }
+
+    pub fn deposit(&mut self, amount: f64) {
+        self.available += amount;
+        self.total += amount;
+    }
+
+    pub fn withdraw(&mut self, amount: f64) {
+        self.available -= amount;
+        self.total -= amount;
+    }
+
+    pub fn lock(&mut self) {
+        self.locked = true;
+    }
 }
 
 #[cfg(test)]
