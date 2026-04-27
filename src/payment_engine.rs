@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 use thiserror::Error;
 
 use crate::{
@@ -38,6 +39,47 @@ impl PaymentEngine {
         }
     }
 
+    /// Read transactions from CSV file and process them
+    /// Expected format: type,client,tx,amount
+    /// ```csv
+    /// type, client, tx, amount
+    /// deposit, 1, 1, 1.0
+    /// dispute, 1, 1
+    /// ...
+    /// ```
+    pub fn process_transactions_from_file(&mut self, file: &PathBuf) -> anyhow::Result<()> {
+        log::debug!("Reading transactions from {}", file.display());
+
+        let mut reader = csv::ReaderBuilder::new()
+            .flexible(true)
+            .trim(csv::Trim::All)
+            .from_path(file)?;
+        for result in reader.deserialize() {
+            if let Err(e) = self.process_transaction(result?) {
+                log::warn!("{}", e);
+                continue;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Serialize all accounts to CSV string
+    /// Output format:
+    /// ```csv
+    /// client,available,held,total,locked
+    /// 1,1.0,0.0,1.0,false
+    /// ...
+    /// ```
+    pub fn serialize_accounts(&self) -> anyhow::Result<String> {
+        let mut writer = csv::Writer::from_writer(Vec::new());
+        for account in self.accounts.values() {
+            writer.serialize(account)?;
+        }
+        let result = writer.into_inner()?;
+        Ok(String::from_utf8(result)?)
+    }
+
     pub fn process_transaction(&mut self, transaction: Transaction) -> Result<(), PaymentError> {
         log::debug!("Processing transaction: {:?}", transaction);
 
@@ -57,16 +99,6 @@ impl PaymentEngine {
         self.store_transaction(transaction);
 
         Ok(())
-    }
-
-    /// Serialize all accounts to CSV string
-    pub fn serialize_accounts(&self) -> anyhow::Result<String> {
-        let mut writer = csv::Writer::from_writer(Vec::new());
-        for account in self.accounts.values() {
-            writer.serialize(account)?;
-        }
-        let result = writer.into_inner()?;
-        Ok(String::from_utf8(result)?)
     }
 
     /// Get account by client id, create on first access

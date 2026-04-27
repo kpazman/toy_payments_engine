@@ -4,6 +4,9 @@ use std::path::PathBuf;
 
 use toy_payments_engine::PaymentEngine;
 
+/// Toy Payments Engine CLI
+///
+/// Reads transactions from a CSV file and processes them, then outputs the state of clients accounts as a CSV.
 #[derive(Parser, Debug)]
 struct Args {
     /// Path to the input CSV file containing transactions
@@ -16,18 +19,7 @@ fn main() -> Result<()> {
 
     let mut engine = PaymentEngine::new();
 
-    log::debug!("Reading transactions from {}", args.input.display());
-
-    let mut reader = csv::ReaderBuilder::new()
-        .flexible(true)
-        .trim(csv::Trim::All)
-        .from_path(args.input)?;
-    for result in reader.deserialize() {
-        if let Err(e) = engine.process_transaction(result?) {
-            log::warn!("{}", e);
-            continue;
-        }
-    }
+    engine.process_transactions_from_file(&args.input)?;
 
     let accounts = engine.serialize_accounts()?;
     println!("{}", accounts);
