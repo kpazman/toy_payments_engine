@@ -38,6 +38,21 @@ impl Account {
         self.total -= amount;
     }
 
+    pub fn dispute(&mut self, amount: f64) {
+        self.held += amount;
+        self.available -= amount;
+    }
+
+    pub fn resolve(&mut self, amount: f64) {
+        self.held -= amount;
+        self.available += amount;
+    }
+
+    pub fn chargeback(&mut self, amount: f64) {
+        self.held -= amount;
+        self.total -= amount;
+    }
+
     pub fn lock(&mut self) {
         self.locked = true;
     }
