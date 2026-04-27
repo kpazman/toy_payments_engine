@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
 
-use toy_payments_engine::{PaymentEngine, Transaction};
+use toy_payments_engine::PaymentEngine;
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -23,8 +23,7 @@ fn main() -> Result<()> {
         .trim(csv::Trim::All)
         .from_path(args.input)?;
     for result in reader.deserialize() {
-        let transaction: Transaction = result?;
-        if let Err(e) = engine.process_transaction(transaction) {
+        if let Err(e) = engine.process_transaction(result?) {
             log::warn!("{}", e);
             continue;
         }

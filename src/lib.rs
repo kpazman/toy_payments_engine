@@ -1,8 +1,8 @@
 mod account;
-pub use account::Account;
-
 mod payment_engine;
+mod transaction;
+
 pub use payment_engine::PaymentEngine;
 
-mod transaction;
-pub use transaction::{Transaction, TransactionType};
+#[cfg(test)]
+mod tests;
