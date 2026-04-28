@@ -19,7 +19,6 @@ Run the following command to observe the logs:
 RUST_LOG=debug cargo run -- transactions_demo.csv
 ```
 
-
 ## AI disclaimer
 
 The project was developed in Cursor, tab completions might have been accepted then modified as needed, but no coding agents were used.
@@ -48,12 +47,14 @@ The client ID will be unique per client though are not guaranteed to be ordered.
 The output should be a list of client IDs (client), available amounts (available), held amounts (held), total amounts (total), and whether the account is locked (locked).
 Columns are defined as:
 
-| Column | Description |
-|-|-|
+
+| Column    | Description                                                                                                                |
+| --------- | -------------------------------------------------------------------------------------------------------------------------- |
 | available | The total funds that are available for trading, staking, withdrawal, etc. This should be equal to the total - held amounts |
-| held | The total funds that are held for dispute. This should be equal to total - available amounts |
-| total | The total funds that are available or held. This should be equal to available + held |
-| locked | Whether the account is locked. An account is locked if a charge back occurs |
+| held      | The total funds that are held for dispute. This should be equal to total - available amounts                               |
+| total     | The total funds that are available or held. This should be equal to available + held                                       |
+| locked    | Whether the account is locked. An account is locked if a charge back occurs                                                |
+
 
 For example:
 
@@ -75,7 +76,6 @@ client,available,held,total,locked
 
 You can assume a precision of four places past the decimal and should output values with the same level of precision.
 
-
 ### Types of Transactions
 
 #### Deposit
@@ -83,18 +83,22 @@ You can assume a precision of four places past the decimal and should output val
 A deposit is a credit to the client's asset account, meaning it should increase the available and total funds of the client account.
 A deposit looks like:
 
-| type | client | tx | amount |
-|-|-|-|-|
-| deposit | 1 | 1 | 1.0 |
+
+| type    | client | tx  | amount |
+| ------- | ------ | --- | ------ |
+| deposit | 1      | 1   | 1.0    |
+
 
 #### Withdrawal
 
 A withdraw is a debit to the client's asset account, meaning it should decrease the available and total funds of the client account.
 A withdrawal looks like:
 
-| type | client | tx | amount |
-|-|-|-|-|
-| withdrawal | 2 | 2 | 1.0 |
+
+| type       | client | tx  | amount |
+| ---------- | ------ | --- | ------ |
+| withdrawal | 2      | 2   | 1.0    |
+
 
 If a client does not have sufficient available funds the withdrawal should fail and the total amount of funds should not change.
 
@@ -103,9 +107,11 @@ If a client does not have sufficient available funds the withdrawal should fail 
 A dispute represents a client's claim that a transaction was erroneous and should be reversed. The transaction shouldn't be reversed yet but the associated funds should be held. This means that the client's available funds should decrease by the amount disputed, their held funds should increase by the amount disputed, while their total funds should remain the same.
 A dispute looks like:
 
-| type | client | tx | amount |
-|-|-|-|-|
-| dispute | 1 | 1 |
+
+| type    | client | tx  | amount |
+| ------- | ------ | --- | ------ |
+| dispute | 1      | 1   |        |
+
 
 Notice that a dispute does not state the amount disputed. Instead a dispute references the transaction that is disputed by ID. If the tx specified by the dispute doesn't exist you can ignore it and assume this is an error on the partner's side.
 
@@ -114,9 +120,11 @@ Notice that a dispute does not state the amount disputed. Instead a dispute refe
 A resolve represents a resolution to a dispute, releasing the associated held funds. Funds that were previously disputed are no longer disputed. This means that the client's held funds should decrease by the amount no longer disputed, their available funds should increase by the amount no longer disputed, and their total funds should remain the same.
 A resolve looks like:
 
-| type | client | tx | amount |
-|-|-|-|-|
-| resolve | 1 | 1 |
+
+| type    | client | tx  | amount |
+| ------- | ------ | --- | ------ |
+| resolve | 1      | 1   |        |
+
 
 Like disputes, resolves do not specify an amount. Instead they refer to a transaction that was under dispute by ID. If the tx specified doesn't exist, or the tx isn't under dispute, the resolve can be ignored and it can be assumed that this is an error on the partner's side.
 
@@ -125,15 +133,19 @@ Like disputes, resolves do not specify an amount. Instead they refer to a transa
 A chargeback is the final state of a dispute and represents the client reversing a transaction. Funds that were held have now been withdrawn. This means that the client's held funds and total funds should decrease by the amount previously disputed. If a chargeback occurs the client's account should be immediately frozen.
 A chargeback looks like:
 
-| type | client | tx | amount |
-|-|-|-|-|
-| chargeback | 1 | 1 |
+
+| type       | client | tx  | amount |
+| ---------- | ------ | --- | ------ |
+| chargeback | 1      | 1   |        |
+
 
 Like a dispute and a resolve a chargeback refers to the transaction by ID (tx) and does not specify an amount. Like a resolve, if the tx specified doesn't exist, or the tx isn't under dispute, the chargeback can be ignored and it can be assumed that this is an error on the partner's side.
 
 #### Assumptions
 
 It is safe to make the following assumptions
- - A client has a single asset account. All transactions are to and from this single asset account;
- - There are multiple clients. Transactions reference clients. If a client doesn't exist, a new record should be created;
- - Clients are represented by u16 integers. No names, addresses, or complex client profile info;
+
+- A client has a single asset account. All transactions are to and from this single asset account;
+- There are multiple clients. Transactions reference clients. If a client doesn't exist, a new record should be created;
+- Clients are represented by u16 integers. No names, addresses, or complex client profile info;
+
