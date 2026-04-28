@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: rust:trixie
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare
+        run: |
+          rustup component add clippy
+          rustup component add rustfmt
+      - name: Clippy
+        run: cargo clippy --release
+      - name: Format
+        run: cargo fmt --check
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: rust:trixie
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test
+        run: cargo test --release
+      - name: Build
+        run: cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: toy_payments_engine
+          path: target/release/tpe-cli
