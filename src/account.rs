@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+/// Struct representing an account record to be handled by the payment engine
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Account {
     client: u16,
