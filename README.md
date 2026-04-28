@@ -21,6 +21,7 @@ RUST_LOG=debug cargo run -- transactions_demo.csv
 
 ## AI disclaimer
 
+**(from init to ef35677)**
 The project was developed in Cursor, tab completions might have been accepted then modified as needed, but no coding agents were used.
 
 ## Detailed description
