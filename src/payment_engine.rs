@@ -23,12 +23,14 @@ pub enum PaymentError {
     InsufficientFunds(u16, Transaction),
     #[error("Transaction ID {0} not found, referenced in transaction {1}")]
     TransactionNotFound(u32, Transaction),
-    #[error("Transaction {0} has invalid type (no amount provided), referenced in transaction {1}")]
-    InvalidTransctionType(u32, Transaction),
+    #[error("Transaction {0} does not belong to the account {1}, referenced in transaction {2}")]
+    InconsistentDisputeRequest(u32, u16, Transaction),
     #[error("Transaction {0} is already under dispute, referenced in transaction {1}")]
     TransactionUnderDispute(u32, Transaction),
     #[error("Transaction {0} is not under dispute, referenced in transaction {1}")]
     TransactionNotUnderDispute(u32, Transaction),
+    #[error("Transaction {0} has invalid type (no amount provided), referenced in transaction {1}")]
+    InvalidTransctionType(u32, Transaction),
 }
 
 impl PaymentEngine {
@@ -123,7 +125,7 @@ impl PaymentEngine {
         })
     }
 
-    /// Get amount under dispute by transaction id
+    /// Get amount under dispute by transaction id, verify that the referenced transaction belongs to the referenced account
     fn get_disputed_amount(&self, transaction: &Transaction) -> Result<f64, PaymentError> {
         let disputed_transaction =
             self.transactions
@@ -132,6 +134,14 @@ impl PaymentEngine {
                     transaction.tx,
                     transaction.clone(),
                 ))?;
+
+        if transaction.client != disputed_transaction.client {
+            return Err(PaymentError::InconsistentDisputeRequest(
+                transaction.tx,
+                transaction.client,
+                transaction.clone(),
+            ));
+        }
 
         if transaction.r#type == TransactionType::Dispute && disputed_transaction.disputed {
             return Err(PaymentError::TransactionUnderDispute(
@@ -150,6 +160,7 @@ impl PaymentEngine {
             ));
         }
 
+        // only Deposit and Withdrawal transactions are stored, so unwrap would safe, the or branch is unreachable
         disputed_transaction
             .amount
             .ok_or(PaymentError::InvalidTransctionType(
