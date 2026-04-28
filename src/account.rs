@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Struct representing an account record to be handled by the payment engine
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
@@ -56,6 +57,16 @@ impl Account {
 
     pub fn lock(&mut self) {
         self.locked = true;
+    }
+}
+
+impl fmt::Display for Account {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "`{},{:.4},{:.4},{:.4},{}`",
+            self.client, self.available, self.held, self.total, self.locked
+        )
     }
 }
 

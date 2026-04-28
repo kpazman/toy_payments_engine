@@ -14,20 +14,21 @@ pub struct PaymentEngine {
     transactions: HashMap<u32, Transaction>,
 }
 
+/// Type representing errors in transaction processing logic
 #[derive(Error, Debug, PartialEq)]
 pub enum PaymentError {
-    #[error("Account {0} is locked")]
-    AccountLocked(u16),
+    #[error("Account {0} is locked, referenced in transaction {1}")]
+    AccountLocked(u16, Transaction),
     #[error("Account {0} has insufficient funds for transaction {1}")]
-    InsufficientFunds(u16, u32),
-    #[error("Transaction {0} not found")]
-    TransactionNotFound(u32),
-    #[error("Transaction {0} has invalid type (no amount provided)")]
-    InvalidTransctionType(u32),
-    #[error("Transaction {0} is already under dispute")]
-    TransactionUnderDispute(u32),
-    #[error("Transaction {0} is not under dispute")]
-    TransactionNotUnderDispute(u32),
+    InsufficientFunds(u16, Transaction),
+    #[error("Transaction ID {0} not found, referenced in transaction {1}")]
+    TransactionNotFound(u32, Transaction),
+    #[error("Transaction {0} has invalid type (no amount provided), referenced in transaction {1}")]
+    InvalidTransctionType(u32, Transaction),
+    #[error("Transaction {0} is already under dispute, referenced in transaction {1}")]
+    TransactionUnderDispute(u32, Transaction),
+    #[error("Transaction {0} is not under dispute, referenced in transaction {1}")]
+    TransactionNotUnderDispute(u32, Transaction),
 }
 
 impl PaymentEngine {
@@ -46,36 +47,40 @@ impl PaymentEngine {
     /// dispute, 1, 1
     /// ...
     /// ```
-    pub fn process_transactions_from_file(&mut self, file: &PathBuf) -> anyhow::Result<()> {
-        log::info!("Reading transactions from {}", file.display());
-        self.process_transaction_stream(TransactionStream::from_file(file)?)
+    pub fn process_transactions_from_file(&mut self, file: &PathBuf) -> std::io::Result<()> {
+        log::debug!("Reading transactions from {}", file.display());
+        self.process_transaction_stream(TransactionStream::from_file(file)?);
+        Ok(())
     }
 
-    /// Process transactions in a [TransactionStream]
-    pub fn process_transaction_stream<R: Read>(
-        &mut self,
-        stream: TransactionStream<R>,
-    ) -> anyhow::Result<()> {
+    /// Process transactions in a [TransactionStream]. Errors are logged and processing continues.
+    pub fn process_transaction_stream<R: Read>(&mut self, stream: TransactionStream<R>) {
         for result in stream {
             if let Ok(transaction) = result {
                 if let Err(e) = self.process_transaction(&transaction) {
+                    // log transaction processing error, then continue
                     log::warn!("{}", e);
                 }
             } else {
-                log::warn!("Error reading transaction: {}", result.unwrap_err());
+                // log transaction parsing error, then continue
+                log::warn!("{}", result.unwrap_err());
             }
         }
-
-        Ok(())
     }
 
     /// Process a single transaction
     pub fn process_transaction(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
-        log::debug!("Processing transaction: {:?}", transaction);
+        log::debug!("Processing transaction: {}", transaction);
 
         // handle locked accounts early
-        if self.get_account(transaction.client).is_locked() {
-            return Err(PaymentError::AccountLocked(transaction.client));
+        let account = self.get_account(transaction.client);
+        log::debug!("Affected account before processing: {}", account);
+
+        if account.is_locked() {
+            return Err(PaymentError::AccountLocked(
+                transaction.client,
+                transaction.clone(),
+            ));
         }
 
         match transaction.r#type {
@@ -87,6 +92,9 @@ impl PaymentEngine {
         }?;
 
         self.store_transaction(transaction);
+
+        let account = self.get_account(transaction.client);
+        log::debug!("Affected account after processing: {}", account);
 
         Ok(())
     }
@@ -117,25 +125,37 @@ impl PaymentEngine {
 
     /// Get amount under dispute by transaction id
     fn get_disputed_amount(&self, transaction: &Transaction) -> Result<f64, PaymentError> {
-        let disputed_transaction = self
-            .transactions
-            .get(&transaction.tx)
-            .ok_or(PaymentError::TransactionNotFound(transaction.tx))?;
+        let disputed_transaction =
+            self.transactions
+                .get(&transaction.tx)
+                .ok_or(PaymentError::TransactionNotFound(
+                    transaction.tx,
+                    transaction.clone(),
+                ))?;
 
         if transaction.r#type == TransactionType::Dispute && disputed_transaction.disputed {
-            return Err(PaymentError::TransactionUnderDispute(transaction.tx));
+            return Err(PaymentError::TransactionUnderDispute(
+                transaction.tx,
+                transaction.clone(),
+            ));
         }
 
         if (transaction.r#type == TransactionType::Resolve
             || transaction.r#type == TransactionType::Chargeback)
             && !disputed_transaction.disputed
         {
-            return Err(PaymentError::TransactionNotUnderDispute(transaction.tx));
+            return Err(PaymentError::TransactionNotUnderDispute(
+                transaction.tx,
+                transaction.clone(),
+            ));
         }
 
         disputed_transaction
             .amount
-            .ok_or(PaymentError::InvalidTransctionType(transaction.tx))
+            .ok_or(PaymentError::InvalidTransctionType(
+                transaction.tx,
+                transaction.clone(),
+            ))
     }
 
     /// Store the transaction for Deposit/Withdrawal, update the disputed status for Dispute/Resolve/Chargeback
@@ -177,7 +197,7 @@ impl PaymentEngine {
         if account.get_available() < transaction.amount.unwrap() {
             return Err(PaymentError::InsufficientFunds(
                 transaction.client,
-                transaction.tx,
+                transaction.clone(),
             ));
         }
 
@@ -239,6 +259,9 @@ mod tests {
 
         let res = payment_engine.process_transaction(&transaction);
         assert!(res.is_err());
-        assert_eq!(res.unwrap_err(), PaymentError::AccountLocked(1));
+        assert_eq!(
+            res.unwrap_err(),
+            PaymentError::AccountLocked(1, transaction.clone())
+        );
     }
 }

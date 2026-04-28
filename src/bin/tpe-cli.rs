@@ -21,6 +21,7 @@ fn main() -> Result<()> {
 
     engine.process_transactions_from_file(&args.input)?;
 
+    log::info!("Done processing transactions, printing accounts to stdout.\n\n");
     let accounts = engine.serialize_accounts()?;
     println!("{}", accounts);
 

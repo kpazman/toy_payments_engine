@@ -85,7 +85,10 @@ fn process_failed_withdrawal() {
     let res = payment_engine.process_transaction(&withdrawal_transaction);
 
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err(), PaymentError::InsufficientFunds(1, 1));
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::InsufficientFunds(1, withdrawal_transaction.clone())
+    );
 }
 
 #[test]
@@ -138,7 +141,10 @@ fn process_nonexistent_dispute() {
     let res = payment_engine.process_transaction(&dispute_transaction);
 
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err(), PaymentError::TransactionNotFound(1));
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::TransactionNotFound(1, dispute_transaction.clone())
+    );
 }
 
 #[test]
@@ -170,7 +176,10 @@ fn process_double_dispute() {
     let res = payment_engine.process_transaction(&dispute_transaction);
 
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err(), PaymentError::TransactionUnderDispute(1));
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::TransactionUnderDispute(1, dispute_transaction.clone())
+    );
 }
 
 #[test]
@@ -234,7 +243,10 @@ fn process_nonexistent_resolve() {
     let res = payment_engine.process_transaction(&resolve_transaction);
 
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err(), PaymentError::TransactionNotFound(1));
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::TransactionNotFound(1, resolve_transaction.clone())
+    );
 }
 
 #[test]
@@ -279,7 +291,7 @@ fn process_double_resolve() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionNotUnderDispute(1)
+        PaymentError::TransactionNotUnderDispute(1, resolve_transaction.clone())
     );
 }
 
@@ -344,7 +356,10 @@ fn process_nonexistent_chargeback() {
     let res = payment_engine.process_transaction(&chargeback_transaction);
 
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err(), PaymentError::TransactionNotFound(1));
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::TransactionNotFound(1, chargeback_transaction.clone())
+    );
 }
 
 #[test]
@@ -375,7 +390,7 @@ fn process_undisputed_chargeback() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionNotUnderDispute(1)
+        PaymentError::TransactionNotUnderDispute(1, chargeback_transaction.clone())
     );
 }
 
@@ -419,5 +434,8 @@ fn process_double_chargeback() {
     let res = payment_engine.process_transaction(&chargeback_transaction);
 
     assert!(res.is_err());
-    assert_eq!(res.unwrap_err(), PaymentError::AccountLocked(1));
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::AccountLocked(1, chargeback_transaction.clone())
+    );
 }

@@ -3,6 +3,7 @@ use serde::{Deserialize, Deserializer};
 use std::{convert::TryFrom, fmt, fs::File, io::Read, path::PathBuf};
 use thiserror::Error;
 
+/// Type representing errors in parsed transaction validation
 #[derive(Error, Debug, PartialEq)]
 enum TransactionError {
     #[error("Missing amount from transaction `{0}`")]
@@ -35,8 +36,12 @@ struct TransactionRow {
 impl fmt::Display for TransactionRow {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self.amount {
-            Some(amount) => write!(f, "{},{},{},{}", self.r#type, self.client, self.tx, amount),
-            None => write!(f, "{},{},{}", self.r#type, self.client, self.tx),
+            Some(amount) => write!(
+                f,
+                "`{},{},{},{:.4}`",
+                self.r#type, self.client, self.tx, amount
+            ),
+            None => write!(f, "`{},{},{}`", self.r#type, self.client, self.tx),
         }
     }
 }
@@ -96,6 +101,20 @@ impl<'de> Deserialize<'de> for Transaction {
     }
 }
 
+impl fmt::Display for Transaction {
+    // Display the transaction in the same format as the input CSV file (disputed field is not included)
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.amount {
+            Some(amount) => write!(
+                f,
+                "`{},{},{},{:.4}`",
+                self.r#type, self.client, self.tx, amount
+            ),
+            None => write!(f, "`{},{},{}`", self.r#type, self.client, self.tx),
+        }
+    }
+}
+
 /// Iterator over transactions from a reader
 pub struct TransactionStream<R: Read> {
     inner: DeserializeRecordsIntoIter<R, Transaction>,
@@ -103,14 +122,14 @@ pub struct TransactionStream<R: Read> {
 
 impl<R: Read> TransactionStream<R> {
     /// Create a new TransactionStream from a reader
-    pub fn from_reader(reader: R) -> Result<Self, csv::Error> {
-        Ok(Self {
+    pub fn from_reader(reader: R) -> Self {
+        Self {
             inner: csv::ReaderBuilder::new()
                 .flexible(true)
                 .trim(csv::Trim::All)
                 .from_reader(reader)
                 .into_deserialize::<Transaction>(),
-        })
+        }
     }
 }
 
@@ -124,8 +143,15 @@ impl<R: Read> Iterator for TransactionStream<R> {
 
 impl TransactionStream<File> {
     /// Create a new TransactionStream from a file
-    pub fn from_file(file: &PathBuf) -> Result<Self, csv::Error> {
-        Self::from_reader(File::open(file).map_err(csv::Error::from)?)
+    pub fn from_file(file: &PathBuf) -> std::io::Result<Self> {
+        let file = File::open(file);
+        if let Ok(file) = file {
+            return Ok(Self::from_reader(file));
+        }
+
+        let error = file.unwrap_err();
+        log::error!("Failed to open file: {error}");
+        Err(error)
     }
 }
 
@@ -182,7 +208,6 @@ chargeback,1,3";
         ];
 
         let records = TransactionStream::from_reader(csv.as_bytes())
-            .unwrap()
             .collect::<Result<Vec<Transaction>, csv::Error>>()
             .unwrap();
         assert_eq!(records, expected);
@@ -194,7 +219,6 @@ chargeback,1,3";
 invalid,1,1,1.0";
 
         let result = TransactionStream::from_reader(csv.as_bytes())
-            .unwrap()
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
@@ -207,7 +231,6 @@ invalid,1,1,1.0";
 deposit,1,1";
 
         let result = TransactionStream::from_reader(csv.as_bytes())
-            .unwrap()
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
@@ -230,7 +253,6 @@ deposit,1,1";
 dispute,1,1,1.0";
 
         let result = TransactionStream::from_reader(csv.as_bytes())
-            .unwrap()
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
