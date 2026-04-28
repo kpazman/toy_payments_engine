@@ -26,6 +26,28 @@ fn process_deposit() {
 }
 
 #[test]
+fn process_duplicate_deposit() {
+    let mut payment_engine = PaymentEngine::new();
+
+    let transaction = Transaction {
+        r#type: TransactionType::Deposit,
+        client: 1,
+        tx: 1,
+        amount: Some(1.0),
+        disputed: false,
+    };
+
+    payment_engine.process_transaction(&transaction).unwrap();
+    let res = payment_engine.process_transaction(&transaction);
+
+    assert!(res.is_err());
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::TransactionIDNotUnique(1, transaction.clone())
+    );
+}
+
+#[test]
 fn process_succesful_withdrawal() {
     let mut payment_engine = PaymentEngine::new();
 
@@ -40,7 +62,7 @@ fn process_succesful_withdrawal() {
     let withdrawal_transaction = Transaction {
         r#type: TransactionType::Withdrawal,
         client: 1,
-        tx: 1,
+        tx: 2,
         amount: Some(1.0),
         disputed: false,
     };
@@ -74,7 +96,7 @@ fn process_failed_withdrawal() {
     let withdrawal_transaction = Transaction {
         r#type: TransactionType::Withdrawal,
         client: 1,
-        tx: 1,
+        tx: 2,
         amount: Some(2.0),
         disputed: false,
     };
@@ -88,6 +110,41 @@ fn process_failed_withdrawal() {
     assert_eq!(
         res.unwrap_err(),
         PaymentError::InsufficientFunds(1, withdrawal_transaction.clone())
+    );
+}
+
+#[test]
+fn process_duplicate_withdrawal() {
+    let mut payment_engine = PaymentEngine::new();
+
+    let deposit_transaction = Transaction {
+        r#type: TransactionType::Deposit,
+        client: 1,
+        tx: 1,
+        amount: Some(1.0),
+        disputed: false,
+    };
+
+    let withdrawal_transaction = Transaction {
+        r#type: TransactionType::Withdrawal,
+        client: 1,
+        tx: 2,
+        amount: Some(1.0),
+        disputed: false,
+    };
+
+    payment_engine
+        .process_transaction(&deposit_transaction)
+        .unwrap();
+    payment_engine
+        .process_transaction(&withdrawal_transaction)
+        .unwrap();
+    let res = payment_engine.process_transaction(&withdrawal_transaction);
+
+    assert!(res.is_err());
+    assert_eq!(
+        res.unwrap_err(),
+        PaymentError::TransactionIDNotUnique(2, withdrawal_transaction.clone())
     );
 }
 

@@ -19,6 +19,8 @@ pub struct PaymentEngine {
 pub enum PaymentError {
     #[error("Account {0} is locked, referenced in transaction {1}")]
     AccountLocked(u16, Transaction),
+    #[error("Transaction with ID {0} was already processed, referenced in transaction {1}")]
+    TransactionIDNotUnique(u32, Transaction),
     #[error("Account {0} has insufficient funds for transaction {1}")]
     InsufficientFunds(u16, Transaction),
     #[error("Transaction ID {0} not found, referenced in transaction {1}")]
@@ -74,16 +76,29 @@ impl PaymentEngine {
     pub fn process_transaction(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         log::debug!("Processing transaction: {}", transaction);
 
-        // handle locked accounts early
         let account = self.get_account(transaction.client);
         log::debug!("Affected account before processing: {}", account);
 
+        // handle locked accounts early
         if account.is_locked() {
             return Err(PaymentError::AccountLocked(
                 transaction.client,
                 transaction.clone(),
             ));
         }
+
+        // check if transaction ID is unique for Deposit and Withdrawal transactions
+        match transaction.r#type {
+            TransactionType::Deposit | TransactionType::Withdrawal => {
+                if self.transactions.contains_key(&transaction.tx) {
+                    return Err(PaymentError::TransactionIDNotUnique(
+                        transaction.tx,
+                        transaction.clone(),
+                    ));
+                }
+            }
+            TransactionType::Dispute | TransactionType::Resolve | TransactionType::Chargeback => (),
+        };
 
         match transaction.r#type {
             TransactionType::Deposit => self.deposit(transaction),
