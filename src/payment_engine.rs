@@ -1,10 +1,9 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
+use std::{collections::HashMap, io::Read, path::PathBuf};
 use thiserror::Error;
 
 use crate::{
     account::Account,
-    transaction::{Transaction, TransactionType},
+    transaction::{Transaction, TransactionStream, TransactionType},
 };
 
 // PaymentEngine stores accessed accounts and processed transactions as members in memory, that should be normally stored in a database
@@ -48,18 +47,46 @@ impl PaymentEngine {
     /// ...
     /// ```
     pub fn process_transactions_from_file(&mut self, file: &PathBuf) -> anyhow::Result<()> {
-        log::debug!("Reading transactions from {}", file.display());
+        log::info!("Reading transactions from {}", file.display());
+        self.process_transaction_stream(TransactionStream::from_file(file)?)
+    }
 
-        let mut reader = csv::ReaderBuilder::new()
-            .flexible(true)
-            .trim(csv::Trim::All)
-            .from_path(file)?;
-        for result in reader.deserialize() {
-            if let Err(e) = self.process_transaction(result?) {
-                log::warn!("{}", e);
-                continue;
+    /// Process transactions in a [TransactionStream]
+    pub fn process_transaction_stream<R: Read>(
+        &mut self,
+        stream: TransactionStream<R>,
+    ) -> anyhow::Result<()> {
+        for result in stream {
+            if let Ok(transaction) = result {
+                if let Err(e) = self.process_transaction(&transaction) {
+                    log::warn!("{}", e);
+                }
+            } else {
+                log::warn!("Error reading transaction: {}", result.unwrap_err());
             }
         }
+
+        Ok(())
+    }
+
+    /// Process a single transaction
+    pub fn process_transaction(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
+        log::debug!("Processing transaction: {:?}", transaction);
+
+        // handle locked accounts early
+        if self.get_account(transaction.client).is_locked() {
+            return Err(PaymentError::AccountLocked(transaction.client));
+        }
+
+        match transaction.r#type {
+            TransactionType::Deposit => self.deposit(transaction),
+            TransactionType::Withdrawal => self.withdraw(transaction),
+            TransactionType::Dispute => self.dispute(transaction),
+            TransactionType::Resolve => self.resolve(transaction),
+            TransactionType::Chargeback => self.chargeback(transaction),
+        }?;
+
+        self.store_transaction(transaction);
 
         Ok(())
     }
@@ -78,27 +105,6 @@ impl PaymentEngine {
         }
         let result = writer.into_inner()?;
         Ok(String::from_utf8(result)?)
-    }
-
-    pub fn process_transaction(&mut self, transaction: Transaction) -> Result<(), PaymentError> {
-        log::debug!("Processing transaction: {:?}", transaction);
-
-        // handle locked accounts early
-        if self.get_account(transaction.client).is_locked() {
-            return Err(PaymentError::AccountLocked(transaction.client));
-        }
-
-        match transaction.r#type {
-            TransactionType::Deposit => self.deposit(&transaction),
-            TransactionType::Withdrawal => self.withdraw(&transaction),
-            TransactionType::Dispute => self.dispute(&transaction),
-            TransactionType::Resolve => self.resolve(&transaction),
-            TransactionType::Chargeback => self.chargeback(&transaction),
-        }?;
-
-        self.store_transaction(transaction);
-
-        Ok(())
     }
 
     /// Get account by client id, create on first access
@@ -133,7 +139,7 @@ impl PaymentEngine {
     }
 
     /// Store the transaction for Deposit/Withdrawal, update the disputed status for Dispute/Resolve/Chargeback
-    fn store_transaction(&mut self, transaction: Transaction) {
+    fn store_transaction(&mut self, transaction: &Transaction) {
         match transaction.r#type {
             TransactionType::Deposit | TransactionType::Withdrawal => {
                 self.transactions
@@ -231,7 +237,7 @@ mod tests {
             disputed: false,
         };
 
-        let res = payment_engine.process_transaction(transaction);
+        let res = payment_engine.process_transaction(&transaction);
         assert!(res.is_err());
         assert_eq!(res.unwrap_err(), PaymentError::AccountLocked(1));
     }

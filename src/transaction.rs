@@ -1,5 +1,6 @@
+use csv::DeserializeRecordsIntoIter;
 use serde::{Deserialize, Deserializer};
-use std::{convert::TryFrom, fmt};
+use std::{convert::TryFrom, fmt, fs::File, io::Read, path::PathBuf};
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -95,6 +96,39 @@ impl<'de> Deserialize<'de> for Transaction {
     }
 }
 
+/// Iterator over transactions from a reader
+pub struct TransactionStream<R: Read> {
+    inner: DeserializeRecordsIntoIter<R, Transaction>,
+}
+
+impl<R: Read> TransactionStream<R> {
+    /// Create a new TransactionStream from a reader
+    pub fn from_reader(reader: R) -> Result<Self, csv::Error> {
+        Ok(Self {
+            inner: csv::ReaderBuilder::new()
+                .flexible(true)
+                .trim(csv::Trim::All)
+                .from_reader(reader)
+                .into_deserialize::<Transaction>(),
+        })
+    }
+}
+
+impl<R: Read> Iterator for TransactionStream<R> {
+    type Item = Result<Transaction, csv::Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next()
+    }
+}
+
+impl TransactionStream<File> {
+    /// Create a new TransactionStream from a file
+    pub fn from_file(file: &PathBuf) -> Result<Self, csv::Error> {
+        Self::from_reader(File::open(file).map_err(csv::Error::from)?)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -147,17 +181,10 @@ chargeback,1,3";
             },
         ];
 
-        let mut rdr = csv::ReaderBuilder::new()
-            .flexible(true)
-            .trim(csv::Trim::All)
-            .from_reader(csv.as_bytes());
-        let records = rdr
-            .deserialize()
-            .map(|result| {
-                let record: Transaction = result.unwrap();
-                record
-            })
-            .collect::<Vec<Transaction>>();
+        let records = TransactionStream::from_reader(csv.as_bytes())
+            .unwrap()
+            .collect::<Result<Vec<Transaction>, csv::Error>>()
+            .unwrap();
         assert_eq!(records, expected);
     }
 
@@ -166,12 +193,8 @@ chargeback,1,3";
         let csv = "type,client,tx,amount
 invalid,1,1,1.0";
 
-        let mut rdr = csv::ReaderBuilder::new()
-            .flexible(true)
-            .trim(csv::Trim::All)
-            .from_reader(csv.as_bytes());
-        let result = rdr
-            .deserialize::<Transaction>()
+        let result = TransactionStream::from_reader(csv.as_bytes())
+            .unwrap()
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
@@ -183,12 +206,8 @@ invalid,1,1,1.0";
         let csv = "type,client,tx,amount
 deposit,1,1";
 
-        let mut rdr = csv::ReaderBuilder::new()
-            .flexible(true)
-            .trim(csv::Trim::All)
-            .from_reader(csv.as_bytes());
-        let result = rdr
-            .deserialize::<Transaction>()
+        let result = TransactionStream::from_reader(csv.as_bytes())
+            .unwrap()
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
@@ -210,12 +229,8 @@ deposit,1,1";
         let csv = "type,client,tx,amount
 dispute,1,1,1.0";
 
-        let mut rdr = csv::ReaderBuilder::new()
-            .flexible(true)
-            .trim(csv::Trim::All)
-            .from_reader(csv.as_bytes());
-        let result = rdr
-            .deserialize::<Transaction>()
+        let result = TransactionStream::from_reader(csv.as_bytes())
+            .unwrap()
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
