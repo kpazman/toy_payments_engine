@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// Struct representing an account record to be handled by the payment engine
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Account {
     client: u16,
     available: Decimal,
@@ -13,7 +13,7 @@ pub struct Account {
 }
 
 impl Account {
-    pub fn new(client: u16) -> Self {
+    pub const fn new(client: u16) -> Self {
         Self {
             client,
             available: dec!(0.0),
@@ -23,11 +23,11 @@ impl Account {
         }
     }
 
-    pub fn get_available(&self) -> Decimal {
+    pub const fn get_available(&self) -> Decimal {
         self.available
     }
 
-    pub fn is_locked(&self) -> bool {
+    pub const fn is_locked(&self) -> bool {
         self.locked
     }
 
@@ -56,7 +56,7 @@ impl Account {
         self.total -= amount;
     }
 
-    pub fn lock(&mut self) {
+    pub const fn lock(&mut self) {
         self.locked = true;
     }
 }

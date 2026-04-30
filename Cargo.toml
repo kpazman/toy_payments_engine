@@ -13,3 +13,15 @@ rust_decimal = { version = "1.41", features = ["macros"] }
 serde = { version = "1.0", features = ["derive"] }
 strum = { version = "0.28", features = ["derive"] }
 thiserror = "2.0"
+
+[lints.clippy]
+all = "warn"
+correctness = "warn"
+suspicious = "warn"
+complexity = "warn"
+perf = "warn"
+style = "warn"
+pedantic = "allow"
+restriction = "allow"
+cargo = "allow"
+nursery = "allow"

@@ -16,7 +16,7 @@ pub struct PaymentEngine {
 }
 
 /// Type representing errors in transaction processing logic
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum PaymentError {
     #[error("Account {0} is locked, referenced in transaction {1}")]
     AccountLocked(u16, Transaction),
@@ -143,13 +143,9 @@ impl PaymentEngine {
 
     /// Get amount under dispute by transaction id, verify that the referenced transaction belongs to the referenced account
     fn get_disputed_amount(&self, transaction: &Transaction) -> Result<Decimal, PaymentError> {
-        let disputed_transaction =
-            self.transactions
-                .get(&transaction.tx)
-                .ok_or(PaymentError::TransactionNotFound(
-                    transaction.tx,
-                    transaction.clone(),
-                ))?;
+        let disputed_transaction = self.transactions.get(&transaction.tx).ok_or_else(|| {
+            PaymentError::TransactionNotFound(transaction.tx, transaction.clone())
+        })?;
 
         if transaction.client != disputed_transaction.client {
             return Err(PaymentError::InconsistentDisputeRequest(
@@ -179,10 +175,7 @@ impl PaymentEngine {
         // only Deposit and Withdrawal transactions are stored, so unwrap would safe, the or branch is unreachable
         disputed_transaction
             .amount
-            .ok_or(PaymentError::InvalidTransctionType(
-                transaction.tx,
-                transaction.clone(),
-            ))
+            .ok_or_else(|| PaymentError::InvalidTransctionType(transaction.tx, transaction.clone()))
     }
 
     /// Store the transaction for Deposit/Withdrawal, update the disputed status for Dispute/Resolve/Chargeback

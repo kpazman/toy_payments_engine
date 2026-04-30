@@ -5,7 +5,7 @@ use std::{convert::TryFrom, fmt, fs::File, io::Read, path::PathBuf};
 use thiserror::Error;
 
 /// Type representing errors in parsed transaction validation
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 enum TransactionError {
     #[error("Missing amount from transaction `{0}`")]
     MissingAmount(TransactionRow),
@@ -14,7 +14,7 @@ enum TransactionError {
 }
 
 /// Supported transaction types
-#[derive(Debug, Deserialize, PartialEq, Clone, strum::Display)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone, strum::Display)]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum TransactionType {
@@ -26,7 +26,7 @@ pub enum TransactionType {
 }
 
 /// Struct representing a transaction row in the CSV files
-#[derive(Debug, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Deserialize, PartialEq, Eq, Clone)]
 struct TransactionRow {
     r#type: TransactionType,
     client: u16,
@@ -48,7 +48,7 @@ impl fmt::Display for TransactionRow {
 }
 
 impl TransactionRow {
-    fn validate(self) -> Result<Self, TransactionError> {
+    const fn validate(self) -> Result<Self, TransactionError> {
         match self.r#type {
             TransactionType::Deposit | TransactionType::Withdrawal => {
                 if self.amount.is_none() {
@@ -67,7 +67,7 @@ impl TransactionRow {
 }
 
 /// Struct representing a transaction record to be handled by the payment engine
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Transaction {
     pub r#type: TransactionType,
     pub client: u16,
@@ -82,7 +82,7 @@ impl TryFrom<TransactionRow> for Transaction {
     fn try_from(row: TransactionRow) -> Result<Self, Self::Error> {
         let valid_row = row.validate()?;
 
-        Ok(Transaction {
+        Ok(Self {
             r#type: valid_row.r#type,
             client: valid_row.client,
             tx: valid_row.tx,
@@ -98,7 +98,7 @@ impl<'de> Deserialize<'de> for Transaction {
         D: Deserializer<'de>,
     {
         let row: TransactionRow = Deserialize::deserialize(deserializer)?;
-        Transaction::try_from(row).map_err(serde::de::Error::custom)
+        Self::try_from(row).map_err(serde::de::Error::custom)
     }
 }
 
