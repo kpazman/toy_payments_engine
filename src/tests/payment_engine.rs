@@ -19,7 +19,7 @@ fn process_deposit() {
     payment_engine.process_transaction(&transaction).unwrap();
 
     let expected_accounts = "client,available,held,total,locked
-1,1.0,0.0,1.0,false
+1,1.0000,0.0000,1.0000,false
 ";
 
     let actual_accounts = payment_engine.serialize_accounts().unwrap();
@@ -76,7 +76,7 @@ fn process_succesful_withdrawal() {
         .unwrap();
 
     let expected_accounts = "client,available,held,total,locked
-1,0.0,0.0,0.0,false
+1,0.0000,0.0000,0.0000,false
 ";
 
     let actual_accounts = payment_engine.serialize_accounts().unwrap();
@@ -177,7 +177,7 @@ fn process_successful_dispute() {
         .unwrap();
 
     let expected_accounts = "client,available,held,total,locked
-1,0.0,1.0,1.0,false
+1,0.0000,1.0000,1.0000,false
 ";
 
     let actual_accounts = payment_engine.serialize_accounts().unwrap();
@@ -311,7 +311,7 @@ fn process_successful_resolve() {
         .unwrap();
 
     let expected_accounts = "client,available,held,total,locked
-1,1.0,0.0,1.0,false
+1,1.0000,0.0000,1.0000,false
 ";
 
     let actual_accounts = payment_engine.serialize_accounts().unwrap();
@@ -467,7 +467,7 @@ fn process_successful_chargeback() {
         .unwrap();
 
     let expected_accounts = "client,available,held,total,locked
-1,0.0,0.0,0.0,true
+1,0.0000,0.0000,0.0000,true
 ";
 
     let actual_accounts = payment_engine.serialize_accounts().unwrap();

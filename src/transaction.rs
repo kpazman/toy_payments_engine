@@ -31,7 +31,16 @@ struct TransactionRow {
     r#type: TransactionType,
     client: u16,
     tx: u32,
+    #[serde(deserialize_with = "deserialize_amount_rounded_4dp")]
     amount: Option<Decimal>,
+}
+
+fn deserialize_amount_rounded_4dp<'de, D>(d: D) -> Result<Option<Decimal>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let amount = Option::<Decimal>::deserialize(d)?;
+    Ok(amount.map(|v| v.round_dp(4)))
 }
 
 impl fmt::Display for TransactionRow {
@@ -163,10 +172,11 @@ mod tests {
 
     #[test]
     fn deserialize_correct_transactions() {
-        // has leading or trailing whitespace for some fields, missing or included optional last field
+        // has leading or trailing whitespace for some fields, extra decimal places, missing or included optional last field
         let csv = "type,client,tx,amount
 deposit, 1, 1, 1
 withdrawal,2,2 , 2.1234
+withdrawal,2,3 , 2.123499999999999
 dispute,1,3,
 resolve,1,3
 chargeback,1,3";
@@ -184,6 +194,13 @@ chargeback,1,3";
                 client: 2,
                 tx: 2,
                 amount: Some(dec!(2.1234)),
+                disputed: false,
+            },
+            Transaction {
+                r#type: TransactionType::Withdrawal,
+                client: 2,
+                tx: 3,
+                amount: Some(dec!(2.1235)),
                 disputed: false,
             },
             Transaction {

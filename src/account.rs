@@ -1,13 +1,16 @@
 use rust_decimal::{Decimal, dec};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 
 /// Struct representing an account record to be handled by the payment engine
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Account {
     client: u16,
+    #[serde(serialize_with = "serialize_amount_rounded_4dp")]
     available: Decimal,
+    #[serde(serialize_with = "serialize_amount_rounded_4dp")]
     held: Decimal,
+    #[serde(serialize_with = "serialize_amount_rounded_4dp")]
     total: Decimal,
     locked: bool,
 }
@@ -71,22 +74,32 @@ impl fmt::Display for Account {
     }
 }
 
+fn serialize_amount_rounded_4dp<S>(value: &Decimal, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&format!("{:.4}", value.round_dp(4)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn serialize_accounts_to_csv() {
-        let expected = b"client,available,held,total,locked
-1,0.0,0.0,0.0,false
-2,0.0,0.0,0.0,false
-";
+        let mut accounts = vec![Account::new(1), Account::new(2)];
+        accounts[0].deposit(dec!(1.0));
+        accounts[1].deposit(dec!(2.123499999999999)); // check for rounding
 
-        let accounts = vec![Account::new(1), Account::new(2)];
         let mut writer = csv::Writer::from_writer(Vec::new());
         for account in accounts {
             writer.serialize(account).unwrap();
         }
+
+        let expected = b"client,available,held,total,locked
+1,1.0000,0.0000,1.0000,false
+2,2.1235,0.0000,2.1235,false
+";
         let result = writer.into_inner().unwrap();
         assert_eq!(result, expected);
     }
