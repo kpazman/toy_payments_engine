@@ -2,6 +2,7 @@ use crate::{
     payment_engine::{PaymentEngine, PaymentError},
     transaction::{Transaction, TransactionType},
 };
+use rust_decimal::dec;
 
 #[test]
 fn process_deposit() {
@@ -11,7 +12,7 @@ fn process_deposit() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -33,7 +34,7 @@ fn process_duplicate_deposit() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -55,7 +56,7 @@ fn process_succesful_withdrawal() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -63,7 +64,7 @@ fn process_succesful_withdrawal() {
         r#type: TransactionType::Withdrawal,
         client: 1,
         tx: 2,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -90,14 +91,14 @@ fn process_failed_withdrawal() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
     let withdrawal_transaction = Transaction {
         r#type: TransactionType::Withdrawal,
         client: 1,
         tx: 2,
-        amount: Some(2.0),
+        amount: Some(dec!(2.0)),
         disputed: false,
     };
 
@@ -121,7 +122,7 @@ fn process_duplicate_withdrawal() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -129,7 +130,7 @@ fn process_duplicate_withdrawal() {
         r#type: TransactionType::Withdrawal,
         client: 1,
         tx: 2,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -156,7 +157,7 @@ fn process_successful_dispute() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -164,7 +165,7 @@ fn process_successful_dispute() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -191,7 +192,7 @@ fn process_nonexistent_dispute() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -212,7 +213,7 @@ fn process_double_dispute() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -220,7 +221,7 @@ fn process_double_dispute() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -247,7 +248,7 @@ fn process_inconsistent_dispute() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -255,7 +256,7 @@ fn process_inconsistent_dispute() {
         r#type: TransactionType::Dispute,
         client: 2,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -279,7 +280,7 @@ fn process_successful_resolve() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -287,7 +288,7 @@ fn process_successful_resolve() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -295,7 +296,7 @@ fn process_successful_resolve() {
         r#type: TransactionType::Resolve,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -325,7 +326,7 @@ fn process_nonexistent_resolve() {
         r#type: TransactionType::Resolve,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -346,7 +347,7 @@ fn process_double_resolve() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -354,7 +355,7 @@ fn process_double_resolve() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -362,7 +363,7 @@ fn process_double_resolve() {
         r#type: TransactionType::Resolve,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -392,7 +393,7 @@ fn process_inconsistent_resolve() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -400,7 +401,7 @@ fn process_inconsistent_resolve() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -408,7 +409,7 @@ fn process_inconsistent_resolve() {
         r#type: TransactionType::Resolve,
         client: 2,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -435,7 +436,7 @@ fn process_successful_chargeback() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -443,7 +444,7 @@ fn process_successful_chargeback() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -451,7 +452,7 @@ fn process_successful_chargeback() {
         r#type: TransactionType::Chargeback,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -481,7 +482,7 @@ fn process_nonexistent_chargeback() {
         r#type: TransactionType::Chargeback,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -502,7 +503,7 @@ fn process_undisputed_chargeback() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -510,7 +511,7 @@ fn process_undisputed_chargeback() {
         r#type: TransactionType::Chargeback,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -534,7 +535,7 @@ fn process_double_chargeback() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -542,7 +543,7 @@ fn process_double_chargeback() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -550,7 +551,7 @@ fn process_double_chargeback() {
         r#type: TransactionType::Chargeback,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -580,7 +581,7 @@ fn process_inconsistent_chargeback() {
         r#type: TransactionType::Deposit,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -588,7 +589,7 @@ fn process_inconsistent_chargeback() {
         r#type: TransactionType::Dispute,
         client: 1,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 
@@ -596,7 +597,7 @@ fn process_inconsistent_chargeback() {
         r#type: TransactionType::Chargeback,
         client: 2,
         tx: 1,
-        amount: Some(1.0),
+        amount: Some(dec!(1.0)),
         disputed: false,
     };
 

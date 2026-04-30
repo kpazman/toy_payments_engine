@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use std::{collections::HashMap, io::Read, path::PathBuf};
 use thiserror::Error;
 
@@ -141,7 +142,7 @@ impl PaymentEngine {
     }
 
     /// Get amount under dispute by transaction id, verify that the referenced transaction belongs to the referenced account
-    fn get_disputed_amount(&self, transaction: &Transaction) -> Result<f64, PaymentError> {
+    fn get_disputed_amount(&self, transaction: &Transaction) -> Result<Decimal, PaymentError> {
         let disputed_transaction =
             self.transactions
                 .get(&transaction.tx)
@@ -209,7 +210,7 @@ impl PaymentEngine {
     }
 
     fn deposit(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
-        // transaction.amount is Some(f64) for TransactionType::Deposit, so unwrap is safe, TODO: enforce it better
+        // transaction.amount is Some(Decimal) for TransactionType::Deposit, so unwrap is safe, TODO: enforce it better
         self.get_account(transaction.client)
             .deposit(transaction.amount.unwrap());
 
@@ -219,7 +220,7 @@ impl PaymentEngine {
     fn withdraw(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         let account = self.get_account(transaction.client);
 
-        // transaction.amount is Some(f64) for TransactionType::Withdrawal, so unwrap is safe, TODO: enforce it better
+        // transaction.amount is Some(Decimal) for TransactionType::Withdrawal, so unwrap is safe, TODO: enforce it better
         if account.get_available() < transaction.amount.unwrap() {
             return Err(PaymentError::InsufficientFunds(
                 transaction.client,
@@ -264,6 +265,7 @@ impl Default for PaymentEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal::dec;
 
     #[test]
     fn process_locked_account() {
@@ -279,7 +281,7 @@ mod tests {
             r#type: TransactionType::Deposit,
             client: 1,
             tx: 1,
-            amount: Some(1.0),
+            amount: Some(dec!(1.0)),
             disputed: false,
         };
 

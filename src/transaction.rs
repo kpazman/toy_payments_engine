@@ -1,4 +1,5 @@
 use csv::DeserializeRecordsIntoIter;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer};
 use std::{convert::TryFrom, fmt, fs::File, io::Read, path::PathBuf};
 use thiserror::Error;
@@ -30,7 +31,7 @@ struct TransactionRow {
     r#type: TransactionType,
     client: u16,
     tx: u32,
-    amount: Option<f64>,
+    amount: Option<Decimal>,
 }
 
 impl fmt::Display for TransactionRow {
@@ -71,7 +72,7 @@ pub struct Transaction {
     pub r#type: TransactionType,
     pub client: u16,
     pub tx: u32,
-    pub amount: Option<f64>,
+    pub amount: Option<Decimal>,
     pub disputed: bool,
 }
 
@@ -158,6 +159,7 @@ impl TransactionStream<File> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal::dec;
 
     #[test]
     fn deserialize_correct_transactions() {
@@ -165,7 +167,7 @@ mod tests {
         let csv = "type,client,tx,amount
 deposit, 1, 1, 1
 withdrawal,2,2 , 2.1234
-dispute,1,3, 
+dispute,1,3,
 resolve,1,3
 chargeback,1,3";
 
@@ -174,14 +176,14 @@ chargeback,1,3";
                 r#type: TransactionType::Deposit,
                 client: 1,
                 tx: 1,
-                amount: Some(1.0),
+                amount: Some(dec!(1.0)),
                 disputed: false,
             },
             Transaction {
                 r#type: TransactionType::Withdrawal,
                 client: 2,
                 tx: 2,
-                amount: Some(2.1234),
+                amount: Some(dec!(2.1234)),
                 disputed: false,
             },
             Transaction {
@@ -262,7 +264,7 @@ dispute,1,1,1.0";
                     r#type: TransactionType::Dispute,
                     client: 1,
                     tx: 1,
-                    amount: Some(1.0),
+                    amount: Some(dec!(1.0)),
                 })
                 .to_string()
             )

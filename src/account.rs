@@ -1,3 +1,4 @@
+use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -5,9 +6,9 @@ use std::fmt;
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Account {
     client: u16,
-    available: f64,
-    held: f64,
-    total: f64,
+    available: Decimal,
+    held: Decimal,
+    total: Decimal,
     locked: bool,
 }
 
@@ -15,14 +16,14 @@ impl Account {
     pub fn new(client: u16) -> Self {
         Self {
             client,
-            available: 0.0,
-            held: 0.0,
-            total: 0.0,
+            available: dec!(0.0),
+            held: dec!(0.0),
+            total: dec!(0.0),
             locked: false,
         }
     }
 
-    pub fn get_available(&self) -> f64 {
+    pub fn get_available(&self) -> Decimal {
         self.available
     }
 
@@ -30,27 +31,27 @@ impl Account {
         self.locked
     }
 
-    pub fn deposit(&mut self, amount: f64) {
+    pub fn deposit(&mut self, amount: Decimal) {
         self.available += amount;
         self.total += amount;
     }
 
-    pub fn withdraw(&mut self, amount: f64) {
+    pub fn withdraw(&mut self, amount: Decimal) {
         self.available -= amount;
         self.total -= amount;
     }
 
-    pub fn dispute(&mut self, amount: f64) {
+    pub fn dispute(&mut self, amount: Decimal) {
         self.held += amount;
         self.available -= amount;
     }
 
-    pub fn resolve(&mut self, amount: f64) {
+    pub fn resolve(&mut self, amount: Decimal) {
         self.held -= amount;
         self.available += amount;
     }
 
-    pub fn chargeback(&mut self, amount: f64) {
+    pub fn chargeback(&mut self, amount: Decimal) {
         self.held -= amount;
         self.total -= amount;
     }
