@@ -77,23 +77,23 @@ impl PaymentEngine {
     pub fn process_transaction(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         log::debug!("Processing transaction: {}", transaction);
 
-        let account = self.get_account(transaction.client);
+        let account = self.get_account(*transaction.client());
         log::debug!("Affected account before processing: {}", account);
 
         // handle locked accounts early
-        if account.is_locked() {
+        if *account.locked() {
             return Err(PaymentError::AccountLocked(
-                transaction.client,
+                *transaction.client(),
                 transaction.clone(),
             ));
         }
 
         // check if transaction ID is unique for Deposit and Withdrawal transactions
-        match transaction.r#type {
+        match *transaction.r#type() {
             TransactionType::Deposit | TransactionType::Withdrawal => {
-                if self.transactions.contains_key(&transaction.tx) {
+                if self.transactions.contains_key(transaction.tx()) {
                     return Err(PaymentError::TransactionIDNotUnique(
-                        transaction.tx,
+                        *transaction.tx(),
                         transaction.clone(),
                     ));
                 }
@@ -101,7 +101,7 @@ impl PaymentEngine {
             TransactionType::Dispute | TransactionType::Resolve | TransactionType::Chargeback => (),
         };
 
-        match transaction.r#type {
+        match *transaction.r#type() {
             TransactionType::Deposit => self.deposit(transaction),
             TransactionType::Withdrawal => self.withdraw(transaction),
             TransactionType::Dispute => self.dispute(transaction),
@@ -111,7 +111,7 @@ impl PaymentEngine {
 
         self.store_transaction(transaction);
 
-        let account = self.get_account(transaction.client);
+        let account = self.get_account(*transaction.client());
         log::debug!("Affected account after processing: {}", account);
 
         Ok(())
@@ -143,108 +143,108 @@ impl PaymentEngine {
 
     /// Get amount under dispute by transaction id, verify that the referenced transaction belongs to the referenced account
     fn get_disputed_amount(&self, transaction: &Transaction) -> Result<Decimal, PaymentError> {
-        let disputed_transaction = self.transactions.get(&transaction.tx).ok_or_else(|| {
-            PaymentError::TransactionNotFound(transaction.tx, transaction.clone())
+        let disputed_transaction = self.transactions.get(transaction.tx()).ok_or_else(|| {
+            PaymentError::TransactionNotFound(*transaction.tx(), transaction.clone())
         })?;
 
-        if transaction.client != disputed_transaction.client {
+        if *transaction.client() != *disputed_transaction.client() {
             return Err(PaymentError::InconsistentDisputeRequest(
-                transaction.tx,
-                transaction.client,
+                *transaction.tx(),
+                *transaction.client(),
                 transaction.clone(),
             ));
         }
 
-        if transaction.r#type == TransactionType::Dispute && disputed_transaction.disputed {
+        if *transaction.r#type() == TransactionType::Dispute && *disputed_transaction.disputed() {
             return Err(PaymentError::TransactionUnderDispute(
-                transaction.tx,
+                *transaction.tx(),
                 transaction.clone(),
             ));
         }
 
-        if (transaction.r#type == TransactionType::Resolve
-            || transaction.r#type == TransactionType::Chargeback)
-            && !disputed_transaction.disputed
+        if (*transaction.r#type() == TransactionType::Resolve
+            || *transaction.r#type() == TransactionType::Chargeback)
+            && !*disputed_transaction.disputed()
         {
             return Err(PaymentError::TransactionNotUnderDispute(
-                transaction.tx,
+                *transaction.tx(),
                 transaction.clone(),
             ));
         }
 
         // only Deposit and Withdrawal transactions are stored, so unwrap would safe, the or branch is unreachable
-        disputed_transaction
-            .amount
-            .ok_or_else(|| PaymentError::InvalidTransctionType(transaction.tx, transaction.clone()))
+        disputed_transaction.amount().ok_or_else(|| {
+            PaymentError::InvalidTransctionType(*transaction.tx(), transaction.clone())
+        })
     }
 
     /// Store the transaction for Deposit/Withdrawal, update the disputed status for Dispute/Resolve/Chargeback
     fn store_transaction(&mut self, transaction: &Transaction) {
-        match transaction.r#type {
+        match *transaction.r#type() {
             TransactionType::Deposit | TransactionType::Withdrawal => {
                 self.transactions
-                    .insert(transaction.tx, transaction.clone());
+                    .insert(*transaction.tx(), transaction.clone());
             }
             TransactionType::Dispute => {
                 let mut updated_transaction =
-                    self.transactions.get(&transaction.tx).unwrap().clone();
-                updated_transaction.disputed = true;
+                    self.transactions.get(transaction.tx()).unwrap().clone();
+                updated_transaction.set_disputed(true);
                 self.transactions
-                    .insert(transaction.tx, updated_transaction);
+                    .insert(*transaction.tx(), updated_transaction);
             }
             TransactionType::Resolve | TransactionType::Chargeback => {
                 let mut updated_transaction =
-                    self.transactions.get(&transaction.tx).unwrap().clone();
-                updated_transaction.disputed = false;
+                    self.transactions.get(transaction.tx()).unwrap().clone();
+                updated_transaction.set_disputed(false);
                 self.transactions
-                    .insert(transaction.tx, updated_transaction);
+                    .insert(*transaction.tx(), updated_transaction);
             }
         }
     }
 
     fn deposit(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         // transaction.amount is Some(Decimal) for TransactionType::Deposit, so unwrap is safe, TODO: enforce it better
-        self.get_account(transaction.client)
-            .deposit(transaction.amount.unwrap());
+        self.get_account(*transaction.client())
+            .deposit(transaction.amount().unwrap());
 
         Ok(())
     }
 
     fn withdraw(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
-        let account = self.get_account(transaction.client);
+        let account = self.get_account(*transaction.client());
 
         // transaction.amount is Some(Decimal) for TransactionType::Withdrawal, so unwrap is safe, TODO: enforce it better
-        if account.get_available() < transaction.amount.unwrap() {
+        if *account.available() < transaction.amount().unwrap() {
             return Err(PaymentError::InsufficientFunds(
-                transaction.client,
+                *transaction.client(),
                 transaction.clone(),
             ));
         }
 
-        account.withdraw(transaction.amount.unwrap());
+        account.withdraw(transaction.amount().unwrap());
 
         Ok(())
     }
 
     fn dispute(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         let amount = self.get_disputed_amount(transaction)?;
-        let account = self.get_account(transaction.client);
+        let account = self.get_account(*transaction.client());
         account.dispute(amount);
         Ok(())
     }
 
     fn resolve(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         let amount = self.get_disputed_amount(transaction)?;
-        let account = self.get_account(transaction.client);
+        let account = self.get_account(*transaction.client());
         account.resolve(amount);
         Ok(())
     }
 
     fn chargeback(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         let amount = self.get_disputed_amount(transaction)?;
-        let account = self.get_account(transaction.client);
+        let account = self.get_account(*transaction.client());
         account.chargeback(amount);
-        account.lock();
+        account.set_locked(true);
         Ok(())
     }
 }
@@ -263,20 +263,15 @@ mod tests {
     #[test]
     fn process_locked_account() {
         let mut account = Account::new(1);
-        account.lock();
+        account.set_locked(true);
 
         let mut payment_engine = PaymentEngine {
             accounts: HashMap::from([(1, account)]),
             transactions: HashMap::new(),
         };
 
-        let transaction = Transaction {
-            r#type: TransactionType::Deposit,
-            client: 1,
-            tx: 1,
-            amount: Some(dec!(1.0)),
-            disputed: false,
-        };
+        let transaction =
+            Transaction::new(TransactionType::Deposit, 1, 1, Some(dec!(1.0)), false).unwrap();
 
         let res = payment_engine.process_transaction(&transaction);
         assert!(res.is_err());

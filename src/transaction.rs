@@ -1,4 +1,5 @@
 use csv::DeserializeRecordsIntoIter;
+use getset::{Getters, Setters};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Deserializer};
 use std::{convert::TryFrom, fmt, fs::File, io::Read, path::PathBuf};
@@ -6,11 +7,11 @@ use thiserror::Error;
 
 /// Type representing errors in parsed transaction validation
 #[derive(Error, Debug, PartialEq, Eq)]
-enum TransactionError {
-    #[error("Missing amount from transaction `{0}`")]
-    MissingAmount(TransactionRow),
-    #[error("Unrequired amount for transaction `{0}`")]
-    UnrequiredAmount(TransactionRow),
+pub enum TransactionError {
+    #[error("Missing amount from transaction `{0},{1},{2}`")]
+    MissingAmount(TransactionType, u16, u32),
+    #[error("Unrequired amount for transaction `{0},{1},{2},{3}`")]
+    UnrequiredAmount(TransactionType, u16, u32, Decimal),
 }
 
 /// Supported transaction types
@@ -56,48 +57,65 @@ impl fmt::Display for TransactionRow {
     }
 }
 
-impl TransactionRow {
-    const fn validate(self) -> Result<Self, TransactionError> {
-        match self.r#type {
+/// Struct representing a transaction to be handled by the payment engine
+#[derive(Debug, PartialEq, Eq, Clone, Getters, Setters)]
+#[getset(get = "pub")]
+pub struct Transaction {
+    r#type: TransactionType,
+    client: u16,
+    tx: u32,
+    amount: Option<Decimal>,
+    #[getset(set = "pub")]
+    disputed: bool,
+}
+
+impl Transaction {
+    pub const fn new(
+        r#type: TransactionType,
+        client: u16,
+        tx: u32,
+        amount: Option<Decimal>,
+        disputed: bool,
+    ) -> Result<Self, TransactionError> {
+        let transaction = Self {
+            r#type,
+            client,
+            tx,
+            amount,
+            disputed,
+        };
+
+        match transaction.r#type {
             TransactionType::Deposit | TransactionType::Withdrawal => {
-                if self.amount.is_none() {
-                    return Err(TransactionError::MissingAmount(self));
+                if transaction.amount.is_none() {
+                    return Err(TransactionError::MissingAmount(
+                        transaction.r#type,
+                        transaction.client,
+                        transaction.tx,
+                    ));
                 }
             }
             TransactionType::Dispute | TransactionType::Resolve | TransactionType::Chargeback => {
-                if self.amount.is_some() {
-                    return Err(TransactionError::UnrequiredAmount(self));
+                if let Some(amount) = transaction.amount {
+                    return Err(TransactionError::UnrequiredAmount(
+                        transaction.r#type,
+                        transaction.client,
+                        transaction.tx,
+                        amount,
+                    ));
                 }
             }
         }
 
-        Ok(self)
+        Ok(transaction)
     }
-}
-
-/// Struct representing a transaction record to be handled by the payment engine
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Transaction {
-    pub r#type: TransactionType,
-    pub client: u16,
-    pub tx: u32,
-    pub amount: Option<Decimal>,
-    pub disputed: bool,
 }
 
 impl TryFrom<TransactionRow> for Transaction {
     type Error = TransactionError;
 
     fn try_from(row: TransactionRow) -> Result<Self, Self::Error> {
-        let valid_row = row.validate()?;
-
-        Ok(Self {
-            r#type: valid_row.r#type,
-            client: valid_row.client,
-            tx: valid_row.tx,
-            amount: valid_row.amount,
-            disputed: false,
-        })
+        Self::new(row.r#type, row.client, row.tx, row.amount, false)
     }
 }
 
@@ -253,37 +271,29 @@ deposit,1,1";
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
-        assert!(
-            result.unwrap_err().to_string().contains(
-                &TransactionError::MissingAmount(TransactionRow {
-                    r#type: TransactionType::Deposit,
-                    client: 1,
-                    tx: 1,
-                    amount: None,
-                })
-                .to_string()
-            )
-        );
+        assert!(result.unwrap_err().to_string().contains(
+            &TransactionError::MissingAmount(TransactionType::Deposit, 1, 1).to_string()
+        ));
     }
 
     #[test]
     fn deserialize_unrequired_amount() {
         let csv = "type,client,tx,amount
-dispute,1,1,1.0";
+dispute,1,1,1.5";
 
         let result = TransactionStream::from_reader(csv.as_bytes())
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
+        dbg!(result.as_ref().unwrap_err().to_string());
+        dbg!(
+            &TransactionError::UnrequiredAmount(TransactionType::Dispute, 1, 1, dec!(1.5))
+                .to_string()
+        );
         assert!(
             result.unwrap_err().to_string().contains(
-                &TransactionError::UnrequiredAmount(TransactionRow {
-                    r#type: TransactionType::Dispute,
-                    client: 1,
-                    tx: 1,
-                    amount: Some(dec!(1.0)),
-                })
-                .to_string()
+                &TransactionError::UnrequiredAmount(TransactionType::Dispute, 1, 1, dec!(1.5))
+                    .to_string()
             )
         );
     }

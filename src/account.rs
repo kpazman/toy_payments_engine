@@ -1,9 +1,11 @@
+use getset::{Getters, Setters};
 use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 
 /// Struct representing an account record to be handled by the payment engine
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Getters, Setters)]
+#[getset(get = "pub")]
 pub struct Account {
     client: u16,
     #[serde(serialize_with = "serialize_amount_rounded_4dp")]
@@ -12,6 +14,7 @@ pub struct Account {
     held: Decimal,
     #[serde(serialize_with = "serialize_amount_rounded_4dp")]
     total: Decimal,
+    #[getset(set = "pub")]
     locked: bool,
 }
 
@@ -24,14 +27,6 @@ impl Account {
             total: dec!(0.0),
             locked: false,
         }
-    }
-
-    pub const fn get_available(&self) -> Decimal {
-        self.available
-    }
-
-    pub const fn is_locked(&self) -> bool {
-        self.locked
     }
 
     pub fn deposit(&mut self, amount: Decimal) {
@@ -57,10 +52,6 @@ impl Account {
     pub fn chargeback(&mut self, amount: Decimal) {
         self.held -= amount;
         self.total -= amount;
-    }
-
-    pub const fn lock(&mut self) {
-        self.locked = true;
     }
 }
 
