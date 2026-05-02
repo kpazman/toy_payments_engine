@@ -80,7 +80,7 @@ fn process_failed_withdrawal() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::InsufficientFunds(1, withdrawal_transaction.clone())
+        PaymentError::InsufficientFunds(1, withdrawal_transaction.to_record().unwrap())
     );
 }
 
@@ -146,7 +146,7 @@ fn process_nonexistent_dispute() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionNotFound(1, dispute_transaction.clone())
+        PaymentError::TransactionNotFound(1, dispute_transaction.to_modifier().unwrap())
     );
 }
 
@@ -171,7 +171,7 @@ fn process_double_dispute() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionUnderDispute(1, dispute_transaction.clone())
+        PaymentError::TransactionUnderDispute(1, dispute_transaction.to_modifier().unwrap())
     );
 }
 
@@ -193,7 +193,7 @@ fn process_inconsistent_dispute() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::InconsistentDisputeRequest(1, 2, dispute_transaction.clone())
+        PaymentError::InconsistentDisputeRequest(1, 2, dispute_transaction.to_modifier().unwrap())
     );
 }
 
@@ -240,7 +240,7 @@ fn process_nonexistent_resolve() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionNotFound(1, resolve_transaction.clone())
+        PaymentError::TransactionNotFound(1, resolve_transaction.to_modifier().unwrap())
     );
 }
 
@@ -271,7 +271,7 @@ fn process_double_resolve() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionNotUnderDispute(1, resolve_transaction.clone())
+        PaymentError::TransactionNotUnderDispute(1, resolve_transaction.to_modifier().unwrap())
     );
 }
 
@@ -299,7 +299,7 @@ fn process_inconsistent_resolve() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::InconsistentDisputeRequest(1, 2, resolve_transaction.clone())
+        PaymentError::InconsistentDisputeRequest(1, 2, resolve_transaction.to_modifier().unwrap())
     );
 }
 
@@ -346,7 +346,7 @@ fn process_nonexistent_chargeback() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionNotFound(1, chargeback_transaction.clone())
+        PaymentError::TransactionNotFound(1, chargeback_transaction.to_modifier().unwrap())
     );
 }
 
@@ -368,7 +368,7 @@ fn process_undisputed_chargeback() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::TransactionNotUnderDispute(1, chargeback_transaction.clone())
+        PaymentError::TransactionNotUnderDispute(1, chargeback_transaction.to_modifier().unwrap())
     );
 }
 
@@ -427,6 +427,10 @@ fn process_inconsistent_chargeback() {
     assert!(res.is_err());
     assert_eq!(
         res.unwrap_err(),
-        PaymentError::InconsistentDisputeRequest(1, 2, chargeback_transaction.clone())
+        PaymentError::InconsistentDisputeRequest(
+            1,
+            2,
+            chargeback_transaction.to_modifier().unwrap()
+        )
     );
 }

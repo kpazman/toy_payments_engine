@@ -4,7 +4,10 @@ use thiserror::Error;
 
 use crate::{
     account::Account,
-    transaction::{Transaction, TransactionStream, TransactionType},
+    transaction::{
+        Transaction, TransactionError, TransactionModifier, TransactionRecord, TransactionStream,
+        TransactionType,
+    },
 };
 
 // PaymentEngine stores accessed accounts and processed transactions as members in memory, that should be normally stored in a database
@@ -12,7 +15,7 @@ pub struct PaymentEngine {
     // account are stored in a hashmap, so it is faster to find by client id
     accounts: HashMap<u16, Account>,
     // transactions are stored in a hashmap, so it is faster to find by transaction id
-    transactions: HashMap<u32, Transaction>,
+    transactions: HashMap<u32, TransactionRecord>,
 }
 
 /// Type representing errors in transaction processing logic
@@ -23,17 +26,17 @@ pub enum PaymentError {
     #[error("Transaction with ID {0} was already processed, referenced in transaction {1}")]
     TransactionIDNotUnique(u32, Transaction),
     #[error("Account {0} has insufficient funds for transaction {1}")]
-    InsufficientFunds(u16, Transaction),
+    InsufficientFunds(u16, TransactionRecord),
     #[error("Transaction ID {0} not found, referenced in transaction {1}")]
-    TransactionNotFound(u32, Transaction),
+    TransactionNotFound(u32, TransactionModifier),
     #[error("Transaction {0} does not belong to the account {1}, referenced in transaction {2}")]
-    InconsistentDisputeRequest(u32, u16, Transaction),
+    InconsistentDisputeRequest(u32, u16, TransactionModifier),
     #[error("Transaction {0} is already under dispute, referenced in transaction {1}")]
-    TransactionUnderDispute(u32, Transaction),
+    TransactionUnderDispute(u32, TransactionModifier),
     #[error("Transaction {0} is not under dispute, referenced in transaction {1}")]
-    TransactionNotUnderDispute(u32, Transaction),
-    #[error("Transaction {0} has invalid type (no amount provided), referenced in transaction {1}")]
-    InvalidTransctionType(u32, Transaction),
+    TransactionNotUnderDispute(u32, TransactionModifier),
+    #[error(transparent)]
+    InvalidTransctionType(#[from] TransactionError),
 }
 
 impl PaymentEngine {
@@ -102,14 +105,14 @@ impl PaymentEngine {
         };
 
         match *transaction.r#type() {
-            TransactionType::Deposit => self.deposit(transaction),
-            TransactionType::Withdrawal => self.withdraw(transaction),
-            TransactionType::Dispute => self.dispute(transaction),
-            TransactionType::Resolve => self.resolve(transaction),
-            TransactionType::Chargeback => self.chargeback(transaction),
+            TransactionType::Deposit => self.deposit(&transaction.to_record()?),
+            TransactionType::Withdrawal => self.withdraw(&transaction.to_record()?),
+            TransactionType::Dispute => self.dispute(&transaction.to_modifier()?),
+            TransactionType::Resolve => self.resolve(&transaction.to_modifier()?),
+            TransactionType::Chargeback => self.chargeback(&transaction.to_modifier()?),
         }?;
 
-        self.store_transaction(transaction);
+        self.store_transaction(transaction)?;
 
         let account = self.get_account(*transaction.client());
         log::debug!("Affected account after processing: {}", account);
@@ -142,7 +145,10 @@ impl PaymentEngine {
     }
 
     /// Get amount under dispute by transaction id, verify that the referenced transaction belongs to the referenced account
-    fn get_disputed_amount(&self, transaction: &Transaction) -> Result<Decimal, PaymentError> {
+    fn get_disputed_amount(
+        &self,
+        transaction: &TransactionModifier,
+    ) -> Result<Decimal, PaymentError> {
         let disputed_transaction = self.transactions.get(transaction.tx()).ok_or_else(|| {
             PaymentError::TransactionNotFound(*transaction.tx(), transaction.clone())
         })?;
@@ -172,75 +178,71 @@ impl PaymentEngine {
             ));
         }
 
-        // only Deposit and Withdrawal transactions are stored, so unwrap would safe, the or branch is unreachable
-        disputed_transaction.amount().ok_or_else(|| {
-            PaymentError::InvalidTransctionType(*transaction.tx(), transaction.clone())
-        })
+        Ok(*disputed_transaction.amount())
     }
 
     /// Store the transaction for Deposit/Withdrawal, update the disputed status for Dispute/Resolve/Chargeback
-    fn store_transaction(&mut self, transaction: &Transaction) {
+    fn store_transaction(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
         match *transaction.r#type() {
             TransactionType::Deposit | TransactionType::Withdrawal => {
                 self.transactions
-                    .insert(*transaction.tx(), transaction.clone());
+                    .insert(*transaction.tx(), transaction.to_record()?);
+                Ok(())
             }
-            TransactionType::Dispute => {
-                let mut updated_transaction =
-                    self.transactions.get(transaction.tx()).unwrap().clone();
-                updated_transaction.set_disputed(true);
-                self.transactions
-                    .insert(*transaction.tx(), updated_transaction);
-            }
-            TransactionType::Resolve | TransactionType::Chargeback => {
-                let mut updated_transaction =
-                    self.transactions.get(transaction.tx()).unwrap().clone();
-                updated_transaction.set_disputed(false);
-                self.transactions
-                    .insert(*transaction.tx(), updated_transaction);
+            TransactionType::Dispute | TransactionType::Resolve | TransactionType::Chargeback => {
+                if let Some(transaction) = self.transactions.get_mut(transaction.tx()) {
+                    transaction.set_disputed(!*transaction.disputed());
+                    Ok(())
+                } else {
+                    // should be unreachable, record existence is checked in get_disputed_amount
+                    log::error!("Unreachable branch reached in store_transaction");
+
+                    Err(PaymentError::TransactionNotFound(
+                        *transaction.tx(),
+                        transaction.to_modifier()?,
+                    ))
+                }
             }
         }
     }
 
-    fn deposit(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
-        // transaction.amount is Some(Decimal) for TransactionType::Deposit, so unwrap is safe, TODO: enforce it better
+    fn deposit(&mut self, transaction: &TransactionRecord) -> Result<(), PaymentError> {
         self.get_account(*transaction.client())
-            .deposit(transaction.amount().unwrap());
+            .deposit(*transaction.amount());
 
         Ok(())
     }
 
-    fn withdraw(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
+    fn withdraw(&mut self, transaction: &TransactionRecord) -> Result<(), PaymentError> {
         let account = self.get_account(*transaction.client());
 
-        // transaction.amount is Some(Decimal) for TransactionType::Withdrawal, so unwrap is safe, TODO: enforce it better
-        if *account.available() < transaction.amount().unwrap() {
+        if *account.available() < *transaction.amount() {
             return Err(PaymentError::InsufficientFunds(
                 *transaction.client(),
                 transaction.clone(),
             ));
         }
 
-        account.withdraw(transaction.amount().unwrap());
+        account.withdraw(*transaction.amount());
 
         Ok(())
     }
 
-    fn dispute(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
+    fn dispute(&mut self, transaction: &TransactionModifier) -> Result<(), PaymentError> {
         let amount = self.get_disputed_amount(transaction)?;
         let account = self.get_account(*transaction.client());
         account.dispute(amount);
         Ok(())
     }
 
-    fn resolve(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
+    fn resolve(&mut self, transaction: &TransactionModifier) -> Result<(), PaymentError> {
         let amount = self.get_disputed_amount(transaction)?;
         let account = self.get_account(*transaction.client());
         account.resolve(amount);
         Ok(())
     }
 
-    fn chargeback(&mut self, transaction: &Transaction) -> Result<(), PaymentError> {
+    fn chargeback(&mut self, transaction: &TransactionModifier) -> Result<(), PaymentError> {
         let amount = self.get_disputed_amount(transaction)?;
         let account = self.get_account(*transaction.client());
         account.chargeback(amount);
