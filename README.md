@@ -24,6 +24,9 @@ RUST_LOG=debug cargo run -- transactions_demo.csv
 **(from init to ef35677)**
 The project was developed in Cursor, tab completions might have been accepted then modified as needed, but no coding agents were used.
 
+**(from 4feda55 to 007d44f)**
+Asked an agent to review the code, the findings were: decimals instead of f64 and possibly stricter transaction types. Implemented the fixes without agents.
+
 ## Detailed description
 
 ### Input
