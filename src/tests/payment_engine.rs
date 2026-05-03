@@ -39,7 +39,7 @@ fn process_duplicate_deposit() {
 }
 
 #[test]
-fn process_succesful_withdrawal() {
+fn process_successful_withdrawal() {
     let mut payment_engine = PaymentEngine::new();
 
     let deposit_transaction =
@@ -201,7 +201,7 @@ fn process_inconsistent_dispute() {
 fn process_successful_resolve() {
     let mut payment_engine = PaymentEngine::new();
 
-    let depostit_transaction =
+    let deposit_transaction =
         Transaction::new(TransactionType::Deposit, 1, 1, Some(dec!(1.0)), false).unwrap();
 
     let dispute_transaction =
@@ -211,7 +211,7 @@ fn process_successful_resolve() {
         Transaction::new(TransactionType::Resolve, 1, 1, None, false).unwrap();
 
     payment_engine
-        .process_transaction(&depostit_transaction)
+        .process_transaction(&deposit_transaction)
         .unwrap();
     payment_engine
         .process_transaction(&dispute_transaction)
@@ -248,7 +248,7 @@ fn process_nonexistent_resolve() {
 fn process_double_resolve() {
     let mut payment_engine = PaymentEngine::new();
 
-    let depostit_transaction =
+    let deposit_transaction =
         Transaction::new(TransactionType::Deposit, 1, 1, Some(dec!(1.0)), false).unwrap();
 
     let dispute_transaction =
@@ -258,7 +258,7 @@ fn process_double_resolve() {
         Transaction::new(TransactionType::Resolve, 1, 1, None, false).unwrap();
 
     payment_engine
-        .process_transaction(&depostit_transaction)
+        .process_transaction(&deposit_transaction)
         .unwrap();
     payment_engine
         .process_transaction(&dispute_transaction)
@@ -307,7 +307,7 @@ fn process_inconsistent_resolve() {
 fn process_successful_chargeback() {
     let mut payment_engine = PaymentEngine::new();
 
-    let depostit_transaction =
+    let deposit_transaction =
         Transaction::new(TransactionType::Deposit, 1, 1, Some(dec!(1.0)), false).unwrap();
 
     let dispute_transaction =
@@ -317,7 +317,7 @@ fn process_successful_chargeback() {
         Transaction::new(TransactionType::Chargeback, 1, 1, None, false).unwrap();
 
     payment_engine
-        .process_transaction(&depostit_transaction)
+        .process_transaction(&deposit_transaction)
         .unwrap();
     payment_engine
         .process_transaction(&dispute_transaction)
@@ -354,14 +354,14 @@ fn process_nonexistent_chargeback() {
 fn process_undisputed_chargeback() {
     let mut payment_engine = PaymentEngine::new();
 
-    let depostit_transaction =
+    let deposit_transaction =
         Transaction::new(TransactionType::Deposit, 1, 1, Some(dec!(1.0)), false).unwrap();
 
     let chargeback_transaction =
         Transaction::new(TransactionType::Chargeback, 1, 1, None, false).unwrap();
 
     payment_engine
-        .process_transaction(&depostit_transaction)
+        .process_transaction(&deposit_transaction)
         .unwrap();
     let res = payment_engine.process_transaction(&chargeback_transaction);
 
@@ -376,7 +376,7 @@ fn process_undisputed_chargeback() {
 fn process_double_chargeback() {
     let mut payment_engine = PaymentEngine::new();
 
-    let depostit_transaction =
+    let deposit_transaction =
         Transaction::new(TransactionType::Deposit, 1, 1, Some(dec!(1.0)), false).unwrap();
 
     let dispute_transaction =
@@ -386,7 +386,7 @@ fn process_double_chargeback() {
         Transaction::new(TransactionType::Chargeback, 1, 1, None, false).unwrap();
 
     payment_engine
-        .process_transaction(&depostit_transaction)
+        .process_transaction(&deposit_transaction)
         .unwrap();
     payment_engine
         .process_transaction(&dispute_transaction)

@@ -111,11 +111,6 @@ dispute,1,1,1.5";
             .collect::<Result<Vec<Transaction>, csv::Error>>();
 
         assert!(result.is_err());
-        dbg!(result.as_ref().unwrap_err().to_string());
-        dbg!(
-            &TransactionError::UnrequiredAmount(TransactionType::Dispute, 1, 1, dec!(1.5))
-                .to_string()
-        );
         assert!(
             result.unwrap_err().to_string().contains(
                 &TransactionError::UnrequiredAmount(TransactionType::Dispute, 1, 1, dec!(1.5))

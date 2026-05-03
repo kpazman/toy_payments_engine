@@ -36,7 +36,7 @@ pub enum PaymentError {
     #[error("Transaction {0} is not under dispute, referenced in transaction {1}")]
     TransactionNotUnderDispute(u32, TransactionModifier),
     #[error(transparent)]
-    InvalidTransctionType(#[from] TransactionError),
+    InvalidTransactionType(#[from] TransactionError),
 }
 
 impl PaymentEngine {
